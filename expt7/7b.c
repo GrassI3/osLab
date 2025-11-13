@@ -1,101 +1,150 @@
 #include <stdio.h>
-#include <string.h> 
+#include <string.h>
+#include <limits.h> // For INT_MAX
 
-#define MAX 25
-
-struct Allocation {
-    int processId;
-    int processSize;
-};
+#define MAX 50
 
 struct Block {
-    int originalSize;
-    int freeSpace;
-    struct Allocation allocatedProcs[MAX];
-    int numProcsAllocated;
+    int size;
+    int isAllocated;
+    int processId;
 };
-void bestFit(struct Block memoryBlocks[], int process[], int m, int n);
-void printMemoryState(struct Block memoryBlocks[], int m);
+
+void bestFit(struct Block memoryBlocks[], int *numBlocks, int process[], int n);
+void printMemoryState(struct Block memoryBlocks[], int numBlocks);
 
 int main() {
     struct Block memoryBlocks[MAX];
     int process[MAX], m, n, i;
 
-    printf("\nEnter number of memory blocks: ");
+    int numBlocks;
+
+    printf("\nEnter number of initial memory blocks (holes): ");
     scanf("%d", &m);
-    printf("\nEnter size of each memory block:\n");
-    for (i = 0; i < m; i++) {
-        scanf("%d", &memoryBlocks[i].originalSize);
-        memoryBlocks[i].freeSpace = memoryBlocks[i].originalSize;
-        memoryBlocks[i].numProcsAllocated = 0;
+    numBlocks = m;
+
+    printf("\nEnter size of each initial memory block:\n");
+    for (i = 0; i < numBlocks; i++) {
+        scanf("%d", &memoryBlocks[i].size);
+        memoryBlocks[i].isAllocated = 0;
+        memoryBlocks[i].processId = 0;
     }
+
     printf("\nEnter number of processes: ");
     scanf("%d", &n);
-
     printf("\nEnter size of each process:\n");
     for (i = 0; i < n; i++) {
         scanf("%d", &process[i]);
     }
-    bestFit(memoryBlocks, process, m, n);
-    return 0;
-}
-void printMemoryState(struct Block memoryBlocks[], int m) {
-    for (int i = 0; i < m; i++) {
-        printf("+------------------------------------------+\n");
-        printf("[ Total Size: %-28d ]\n", memoryBlocks[i].originalSize);
 
-        char content[256] = "";
-        char temp[50];
-        for (int j = 0; j < memoryBlocks[i].numProcsAllocated; j++) {
-            sprintf(temp, "P%d(%dK) | ",
-                    memoryBlocks[i].allocatedProcs[j].processId,
-                    memoryBlocks[i].allocatedProcs[j].processSize);
-            strcat(content, temp);
+    bestFit(memoryBlocks, &numBlocks, process, n);
+}
+
+void printMemoryState(struct Block memoryBlocks[], int numBlocks) {
+    for (int i = 0; i < numBlocks; i++) {
+        printf("+------------------------------------------+\n"); 
+        char content[50]; 
+
+        if (memoryBlocks[i].isAllocated) {
+            sprintf(content, "P%d (Allocated: %dK)", 
+                   memoryBlocks[i].processId, 
+                   memoryBlocks[i].size);
+        } else {
+            sprintf(content, "Free (Size: %dK)", 
+                   memoryBlocks[i].size);
         }
-        sprintf(temp, "Free: %dK", memoryBlocks[i].freeSpace);
-        strcat(content, temp);
-        printf("[ %-40s ]\n", content);
+        printf("[ %-40s ]\n", content); 
     }
     printf("+------------------------------------------+\n\n");
 }
-void bestFit(struct Block memoryBlocks[], int process[], int m, int n) {
+
+
+void bestFit(struct Block memoryBlocks[], int *numBlocks, int process[], int n) {
     int allocation[MAX];
-    int i, j;
-    for (i = 0; i < n; i++) {
-        allocation[i] = -1;
-    }
+    memset(allocation, 0, sizeof(allocation)); 
+
     printf("\n\n--- Initial Memory State ---\n");
-    printMemoryState(memoryBlocks, m);
-    for (i = 0; i < n; i++) {
+    printMemoryState(memoryBlocks, *numBlocks);
+
+    for (int i = 0; i < n; i++) {
+        int processSize = process[i];
+        int processId = i + 1;
+        int isAllocated = 0;
+        
         int bestFitIndex = -1;
-        for (j = 0; j < m; j++) {
-            if (memoryBlocks[j].freeSpace >= process[i]) {
-                if (bestFitIndex == -1) {
-                    bestFitIndex = j;
-                } else if (memoryBlocks[j].freeSpace < memoryBlocks[bestFitIndex].freeSpace) {
+        int minSizeFound = INT_MAX;
+
+        // Best-fit search loop
+        for (int j = 0; j < *numBlocks; j++) {
+            if (!memoryBlocks[j].isAllocated && memoryBlocks[j].size >= processSize) {
+                if (memoryBlocks[j].size < minSizeFound) {
+                    minSizeFound = memoryBlocks[j].size;
                     bestFitIndex = j;
                 }
             }
         }
+
+        // Allocation logic (if a fit was found)
         if (bestFitIndex != -1) {
-            allocation[i] = bestFitIndex;
-            int procIndex = memoryBlocks[bestFitIndex].numProcsAllocated;
-            memoryBlocks[bestFitIndex].allocatedProcs[procIndex].processId = i + 1;
-            memoryBlocks[bestFitIndex].allocatedProcs[procIndex].processSize = process[i];
-            memoryBlocks[bestFitIndex].numProcsAllocated++;
-            memoryBlocks[bestFitIndex].freeSpace -= process[i];
+            int originalBlockSize = memoryBlocks[bestFitIndex].size; 
+            int remainingSize = originalBlockSize - processSize;
+
+            memoryBlocks[bestFitIndex].isAllocated = 1;
+            memoryBlocks[bestFitIndex].size = processSize;
+            memoryBlocks[bestFitIndex].processId = processId;
+
+            if (remainingSize > 0) {
+                for (int k = *numBlocks; k > bestFitIndex + 1; k--) {
+                    memoryBlocks[k] = memoryBlocks[k - 1];
+                }
+
+                memoryBlocks[bestFitIndex + 1].size = remainingSize;
+                memoryBlocks[bestFitIndex + 1].isAllocated = 0;
+                memoryBlocks[bestFitIndex + 1].processId = 0;
+
+                (*numBlocks)++;
+            }
+            
+            allocation[i] = 1; 
+            isAllocated = 1;
+
+            printf("\n--- P%d (Size: %dK) allocated to block of size %dK ---\n", 
+                   processId, processSize, originalBlockSize);
+            printMemoryState(memoryBlocks, *numBlocks);
+
         }
-        printf("\n--- Memory State after attempting to allocate P%d (Size: %d) ---\n", i + 1, process[i]);
-        printMemoryState(memoryBlocks, m);
+        
+        if (!isAllocated) {
+            printf("\n--- Attempt failed for P%d (Size: %dK) ---\n", processId, processSize);
+            printf("!!! P%d (Size: %dK) could NOT be allocated.\n", processId, processSize);
+            printMemoryState(memoryBlocks, *numBlocks);
+        }
     }
-    printf("\n--- Detailed Allocation Report ---\n");
-    for (i = 0; i < n; i++) {
-        if (allocation[i] != -1) {
-            printf("Process %d of size %d is allocated to block %d of size %d\n",
-                   i + 1, process[i], allocation[i] + 1, memoryBlocks[allocation[i]].originalSize);
+
+    printf("\n--- Final Allocation Report ---\n");
+    int totalExternalFrag = 0;
+    int largestHole = 0;
+    
+    for (int i = 0; i < *numBlocks; i++) {
+        if (!memoryBlocks[i].isAllocated) {
+            totalExternalFrag += memoryBlocks[i].size;
+            if (memoryBlocks[i].size > largestHole) {
+                largestHole = memoryBlocks[i].size;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+        if (allocation[i] == 1) {
+            printf("Process %d (Size: %dK) was allocated.\n", i + 1, process[i]);
         } else {
-            printf("Process %d of size %d is not allocated\n", i + 1, process[i]);
+            printf("Process %d (Size: %dK) was NOT allocated.\n", i + 1, process[i]);
+            if (process[i] <= totalExternalFrag && process[i] > largestHole) {
+                printf("  -> This process failed due to External Fragmentation.\n");
+            }
         }
     }
-    printf("\n");
+    
+    printf("\nTotal External Fragmentation (sum of all holes): %dK\n", totalExternalFrag);
+    printf("Largest Hole: %dK\n", largestHole);
 }

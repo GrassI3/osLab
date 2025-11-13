@@ -1,46 +1,32 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <string>
-#include <sstream>
-#include <iomanip>
-
-using namespace std;
+#include <stdio.h>
+#include <stdlib.h>
+#define MAX 50
 
 int main() {
-    int blockSize, currentHead, previousHead, track;
-    vector<int> requestQueue;
-    int totalMovements = 0;
-    stringstream trackSequence;
-
-    cout << "Enter block size: ";
-    cin >> blockSize; 
-
-    cout << "Enter request queue (-1 to exit): ";
-    while (cin >> track && track != -1) {
-        requestQueue.push_back(track);
+    int n, i, totalHeadMovement = 0, requests[MAX], head;
+    printf("Enter number of requests: ");
+    scanf("%d", &n);
+    printf("Enter Request Queue: ");
+    for (i = 0; i < n; i++)
+        scanf("%d", &requests[i]);
+    printf("Enter Current Head Position: ");
+    scanf("%d", &head);
+    
+    printf("\n--- FCFS Disk Scheduling Algorithm ---\n");
+    printf("--------------------------------------------------\n");
+    printf("From\t\tTo\t\tDistance\n");
+    printf("--------------------------------------------------\n");
+    int currentHead = head;
+    for (i = 0; i < n; i++) {
+        int distance = abs(currentHead - requests[i]);
+        printf("%d\t\t%d\t\t%d\n", currentHead, requests[i], distance);
+        totalHeadMovement += distance;
+        currentHead = requests[i];
     }
-
-    cout << "Enter current head position: ";
-    cin >> currentHead;
-
-    cout << "\nOUTPUT:\n" << endl;
-    cout << "from\tto\tdistance" << endl;
-
-    trackSequence << currentHead; 
-
-    for (int nextTrack : requestQueue) {
-        int distance = abs(nextTrack - currentHead);
-        totalMovements += distance;
-
-        cout << currentHead << "\t" << nextTrack << "\t" << distance << endl;
-
-        currentHead = nextTrack;
-        trackSequence << "->" << currentHead;
-    }
-
-    cout << "\nTrack Sequence: " << trackSequence.str() << endl;
-    cout << "Total head movements: " << totalMovements << endl;
-
+    printf("--------------------------------------------------\n");
+    printf("\nSeek Sequence: %d", head);
+    for (i = 0; i < n; i++)
+        printf(" -> %d", requests[i]);
+    printf("\nTotal Number of Head Movements: %d\n", totalHeadMovement);
     return 0;
 }
